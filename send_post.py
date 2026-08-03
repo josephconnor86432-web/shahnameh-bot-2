@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime
 
-print("=== نسخه بدون عکس شروع به کار کرد ===")
+print("=== شاهنامه بات v2 - دکمه‌های بهبود یافته ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -16,36 +16,40 @@ def get_random_verses(count=4):
         r.raise_for_status()
         poem = r.json()
         verses = poem.get('verses', [])
-        print(f"تعداد بیت دریافت شده: {len(verses)}")
-        return verses[:count]
+        print(f"شعر دریافت شده: {poem.get('title', 'نامشخص')}")
+        return verses[:count], poem
     except Exception as e:
         print(f"خطا در دریافت بیت: {e}")
-        return None
+        return None, None
 
-def create_caption(verses):
+def create_caption(verses, poem):
     caption = "📖 **شاهنامه فردوسی**\n\n"
+    
     for verse in verses:
         caption += f"{verse.get('text', '')}\n"
+    
+    caption += f"\n🏷️ {poem.get('title', 'شاهنامه')}"
     caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
     return caption
 
 def send_post():
-    verses = get_random_verses(count=4)
+    verses, poem = get_random_verses(count=4)
 
-    if not verses or len(verses) < 2:
+    if not verses or not poem:
         print("❌ نتوانست بیت دریافت کند")
         return
 
-    caption = create_caption(verses)
+    caption = create_caption(verses, poem)
+    poem_url = f"https://ganjoor.net{poem.get('fullUrl', '')}"
 
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "🎤 صوت خوانش", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"},
-                {"text": "📖 ادامه داستان", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
+                {"text": "📖 خواندن کامل غزل/قطعه", "url": poem_url}
             ],
             [
-                {"text": "🔎 شرح و معنی", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
+                {"text": "🎧 شنیدن صوت", "url": poem_url},
+                {"text": "🔎 معنی و شرح", "url": poem_url}
             ]
         ]
     }
@@ -61,7 +65,8 @@ def send_post():
     response = requests.post(url, json=payload)
     
     if response.status_code == 200:
-        print("✅ پست با موفقیت به کانال ارسال شد")
+        print("✅ پست با موفقیت ارسال شد")
+        print(f"لینک استفاده شده: {poem_url}")
     else:
         print(f"❌ خطا در ارسال: {response.status_code}")
         print(response.text)
