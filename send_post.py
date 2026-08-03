@@ -2,54 +2,58 @@ import requests
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات v2 - دکمه‌های بهبود یافته ===")
+print("=== شاهنامه بات v3 - فقط فردوسی + دکمه درست ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 GANJOOR_API = "https://api.ganjoor.net/api/ganjoor"
 
-def get_random_verses(count=4):
+def get_shahnameh_verses(count=4):
     try:
-        url = f"{GANJOOR_API}/poem/random"
-        params = {"poetId": 2}
-        r = requests.get(url, params=params, timeout=15)
+        # روش مطمئن‌تر برای دریافت فقط از شاهنامه
+        url = f"{GANJOOR_API}/poet/2/random"
+        r = requests.get(url, timeout=15)
         r.raise_for_status()
         poem = r.json()
+        
         verses = poem.get('verses', [])
-        print(f"شعر دریافت شده: {poem.get('title', 'نامشخص')}")
-        return verses[:count], poem
+        title = poem.get('title', 'شاهنامه')
+        full_url = f"https://ganjoor.net{poem.get('fullUrl', '')}"
+        
+        print(f"شعر دریافت شده از: {title}")
+        print(f"تعداد بیت: {len(verses)}")
+        
+        return verses[:count], poem, full_url
     except Exception as e:
         print(f"خطا در دریافت بیت: {e}")
-        return None, None
+        return None, None, None
 
-def create_caption(verses, poem):
+def create_caption(verses, title):
     caption = "📖 **شاهنامه فردوسی**\n\n"
-    
     for verse in verses:
         caption += f"{verse.get('text', '')}\n"
     
-    caption += f"\n🏷️ {poem.get('title', 'شاهنامه')}"
+    caption += f"\n🏷️ {title}"
     caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
     return caption
 
 def send_post():
-    verses, poem = get_random_verses(count=4)
+    verses, poem, poem_url = get_shahnameh_verses(count=4)
 
     if not verses or not poem:
-        print("❌ نتوانست بیت دریافت کند")
+        print("❌ نتوانست بیت از شاهنامه دریافت کند")
         return
 
-    caption = create_caption(verses, poem)
-    poem_url = f"https://ganjoor.net{poem.get('fullUrl', '')}"
+    caption = create_caption(verses, poem.get('title', 'شاهنامه'))
 
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "📖 خواندن کامل غزل/قطعه", "url": poem_url}
+                {"text": "📖 خواندن کامل داستان", "url": poem_url}
             ],
             [
                 {"text": "🎧 شنیدن صوت", "url": poem_url},
-                {"text": "🔎 معنی و شرح", "url": poem_url}
+                {"text": "📖 شرح و معنی", "url": poem_url + "#meaning"}
             ]
         ]
     }
@@ -65,8 +69,7 @@ def send_post():
     response = requests.post(url, json=payload)
     
     if response.status_code == 200:
-        print("✅ پست با موفقیت ارسال شد")
-        print(f"لینک استفاده شده: {poem_url}")
+        print("✅ پست شاهنامه با موفقیت ارسال شد")
     else:
         print(f"❌ خطا در ارسال: {response.status_code}")
         print(response.text)
