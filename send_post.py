@@ -3,12 +3,15 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه نهایی و پایدار (v16) ===")
+print("=== شاهنامه بات - نسخه نهایی (متن + عکس) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 BITS_PER_POST = 4
 FILE_NAME = "shahnameh.txt"
+
+# لینک تصویر ثابت از ویکی‌پدیا (مستقیم و تست‌شده)
+IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Shahnameh_The_Houghton_01.jpg/800px-Shahnameh_The_Houghton_01.jpg"
 
 def load_state():
     if os.path.exists("state.json"):
@@ -51,27 +54,24 @@ def send_post():
 
     caption = create_caption(verses, start)
 
+    # فقط دکمه‌هایی که ۱۰۰٪ کار می‌کنند
     keyboard = {
         "inline_keyboard": [
             [
                 {"text": "🎧 صوت شاهنامه", 
-                 "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87+%D9%81%D8%B1%D8%AF%D9%88%D8%B3%DB%8C"}
-            ],
-            [
-                {"text": "📥 دانلود شاهنامه کامل (PDF - ۳۰ مگ)", 
-                 "url": "https://ia801200.us.archive.org/8/items/shahnameh-ferdowsi/Shahnameh.pdf"}
-            ],
-            [
-                {"text": "🔎 درباره شاهنامه و فردوسی", 
+                 "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87"},
+                {"text": "🔎 درباره شاهنامه", 
                  "url": "https://fa.wikipedia.org/wiki/%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87"}
             ]
         ]
     }
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    # ارسال عکس + متن با هم
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
     payload = {
         "chat_id": CHANNEL_ID,
-        "text": caption,
+        "photo": IMAGE_URL,
+        "caption": caption,
         "parse_mode": "Markdown",
         "reply_markup": json.dumps(keyboard)
     }
@@ -79,11 +79,24 @@ def send_post():
     response = requests.post(url, json=payload)
 
     if response.status_code == 200:
-        print(f"✅ پست ارسال شد (بیت {start+1} تا {start+len(verses)})")
+        print(f"✅ پست با عکس ارسال شد (بیت {start+1} تا {start+len(verses)})")
         save_state(start + len(verses))
     else:
-        print(f"❌ خطا در ارسال: {response.status_code}")
-        print(response.text)
+        print(f"❌ خطا در ارسال عکس: {response.status_code} - {response.text}")
+        # اگر عکس مشکل داشت، فقط متن ارسال شود
+        url_text = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload_text = {
+            "chat_id": CHANNEL_ID,
+            "text": caption + "\n\n📷 [تصویر شاهنامه](https://upload.wikimedia.org/wikipedia/commons/9/9f/Shahnameh_The_Houghton_01.jpg)",
+            "parse_mode": "Markdown",
+            "reply_markup": json.dumps(keyboard)
+        }
+        response_text = requests.post(url_text, json=payload_text)
+        if response_text.status_code == 200:
+            print("✅ پست متنی (بدون عکس) ارسال شد")
+            save_state(start + len(verses))
+        else:
+            print(f"❌ خطا در ارسال متن هم: {response_text.status_code}")
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
