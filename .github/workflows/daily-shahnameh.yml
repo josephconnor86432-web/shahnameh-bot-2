@@ -11,7 +11,7 @@ def load_state():
     if os.path.exists("state.json"):
         with open("state.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"last_image_index": 0}
+    return {}
 
 def save_state(state):
     with open("state.json", "w", encoding="utf-8") as f:
@@ -34,18 +34,27 @@ def create_caption(verses):
     caption = "📖 **شاهنامه فردوسی**\n\n"
     for verse in verses:
         caption += f"{verse.get('text', '')}\n"
+    
     caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
     return caption
 
-def send_text_post(verses):
-    """ارسال پست فقط به صورت متنی"""
+def send_post():
+    verses = get_random_verses(count=4)
+
+    if not verses or len(verses) < 2:
+        print("❌ نتوانست بیت دریافت کند")
+        return
+
     caption = create_caption(verses)
-    
+
     keyboard = {
         "inline_keyboard": [
             [
                 {"text": "🎤 صوت خوانش", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"},
                 {"text": "📖 ادامه داستان", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
+            ],
+            [
+                {"text": "🔎 شرح و معنی", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
             ]
         ]
     }
@@ -59,27 +68,14 @@ def send_text_post(verses):
     }
 
     response = requests.post(url, json=payload)
+    
     if response.status_code == 200:
-        print("✅ پست متنی با موفقیت ارسال شد")
-        return True
+        print("✅ پست با موفقیت ارسال شد")
+        # حالا state را بهروز میکنیم (اگر نیاز است)
+        # save_state(state) # میتوانی بعداً پیادهسازی کنی
     else:
-        print(f"❌ خطا در ارسال متن: {response.status_code}")
+        print(f"❌ خطا در ارسال به تلگرام: {response.status_code}")
         print(response.text)
-        return False
-
-def send_post():
-    verses = get_random_verses(count=4)
-
-    if not verses or len(verses) < 2:
-        print("❌ نتوانست بیت دریافت کند")
-        return
-
-    # ارسال پست متنی
-    if send_text_post(verses):
-        # state رو به‌روز کن (برای آینده)
-        state = load_state()
-        state["last_image_index"] += 1
-        save_state(state)
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
