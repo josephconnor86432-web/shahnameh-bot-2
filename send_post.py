@@ -1,39 +1,38 @@
 import requests
-import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات v4 - endpoint درست + تکرار تا فردوسی ===")
+print("=== شاهنامه بات v5 - تلاش هوشمند تا دریافت فردوسی ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 GANJOOR_API = "https://api.ganjoor.net/api/ganjoor"
 
-def get_shahnameh_verses(max_retries=6):
-    for attempt in range(max_retries):
+def get_shahnameh_verses(max_retries=15):
+    for attempt in range(1, max_retries + 1):
         try:
             url = f"{GANJOOR_API}/poem/random"
-            params = {"poetId": 2}   # فقط فردوسی
-            r = requests.get(url, params=params, timeout=15)
+            r = requests.get(url, params={"poetId": 2}, timeout=12)
             r.raise_for_status()
             poem = r.json()
-            
-            # چک کردن اینکه واقعاً از فردوسی باشد
-            if poem.get('poet', {}).get('id') == 2 or poem.get('poetId') == 2:
+
+            poet = poem.get('poet', {})
+            poet_name = poet.get('name', 'نامشخص')
+            poet_id = poet.get('id')
+
+            print(f"تلاش {attempt}: شاعر = {poet_name} (ID: {poet_id})")
+
+            if poet_id == 2 or "فردوسی" in poet_name or "فردوسي" in poet_name:
                 verses = poem.get('verses', [])
                 title = poem.get('title', 'شاهنامه')
                 full_url = f"https://ganjoor.net{poem.get('fullUrl', '')}"
-                print(f"✅ بیت از شاهنامه دریافت شد | تلاش {attempt+1}")
+                print(f"✅ بیت از شاهنامه دریافت شد!")
                 return verses[:4], title, full_url
-            else:
-                print(f"تلاش {attempt+1}: شعر از فردوسی نبود، دوباره تلاش میکنم...")
-                continue
-                
+
         except Exception as e:
-            print(f"خطا در تلاش {attempt+1}: {e}")
-            continue
-    
-    print("❌ بعد از چندین تلاش نتوانست بیت از شاهنامه بگیرد")
+            print(f"خطا در تلاش {attempt}: {e}")
+
+    print("❌ بعد از ۱۵ تلاش هم بیت از شاهنامه پیدا نشد")
     return None, None, None
 
 def create_caption(verses, title):
@@ -74,13 +73,13 @@ def send_post():
     response = requests.post(url, json=payload)
     
     if response.status_code == 200:
-        print("✅ پست شاهنامه با موفقیت به کانال ارسال شد")
+        print("✅ پست با موفقیت ارسال شد")
     else:
-        print(f"❌ خطا در ارسال پیام: {response.status_code}")
+        print(f"❌ خطا در ارسال: {response.status_code}")
         print(response.text)
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
-        print("❌ BOT_TOKEN یا CHANNEL_ID تنظیم نشده است")
+        print("❌ توکن یا آیدی کانال تنظیم نشده است")
     else:
         send_post()
