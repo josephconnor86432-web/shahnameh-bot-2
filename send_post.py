@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه نهایی v9 ===")
+print("=== شاهنامه بات - نسخه نهایی v10 (لینک‌های تست‌شده) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -45,7 +45,7 @@ def send_post():
     verses = shahnameh[start:start + BITS_PER_POST]
 
     if not verses:
-        print("به پایان شاهنامه رسیدیم. ریست شد.")
+        print("به پایان شاهنامه رسیدیم.")
         save_state(0)
         return
 
@@ -58,9 +58,9 @@ def send_post():
                  "url": "https://ganjoor.net/ferdowsi/shahname"}
             ],
             [
-                {"text": "🎧 صوت‌های حرفه‌ای شاهنامه", 
-                 "url": "https://ganjoor.net/ferdowsi/shahname"},
-                {"text": "📚 دانلود شاهنامه کامل (PDF)", 
+                {"text": "🎧 صوت شاهنامه (خوانی)", 
+                 "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87"},
+                {"text": "📥 دانلود شاهنامه کامل PDF", 
                  "url": "https://download.ketabnak.com/ketab/1398/02/01/Ferdowsi.Shahname.pdf"}
             ]
         ]
