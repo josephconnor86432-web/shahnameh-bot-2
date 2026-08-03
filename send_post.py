@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه بدون گنجور (v14) ===")
+print("=== شاهنامه بات - نسخه پایدار بدون گنجور (v15) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -45,7 +45,7 @@ def send_post():
     verses = shahnameh[start:start + BITS_PER_POST]
 
     if not verses:
-        print("به پایان فایل رسیدیم. ریست شد.")
+        print("به پایان شاهنامه رسیدیم. ریست شد.")
         save_state(0)
         return
 
@@ -54,7 +54,7 @@ def send_post():
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "🎧 گوش دادن به صوت شاهنامه", 
+                {"text": "🎧 صوت شاهنامه", 
                  "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87+%D9%81%D8%B1%D8%AF%D9%88%D8%B3%DB%8C"}
             ],
             [
@@ -62,8 +62,8 @@ def send_post():
                  "url": "https://ia801200.us.archive.org/8/items/shahnameh-ferdowsi/Shahnameh.pdf"}
             ],
             [
-                {"text": "📖 خواندن شاهنامه آنلاین", 
-                 "url": "https://ketabnak.com/book/1398/02/01/Ferdowsi.Shahname"}
+                {"text": "🔎 درباره شاهنامه و فردوسی", 
+                 "url": "https://fa.wikipedia.org/wiki/%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87"}
             ]
         ]
     }
