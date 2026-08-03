@@ -1,63 +1,71 @@
 import requests
+import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات v5 - تلاش هوشمند تا دریافت فردوسی ===")
+print("=== شاهنامه بات - نسخه متنی (ترتیبی) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
-GANJOOR_API = "https://api.ganjoor.net/api/ganjoor"
 
-def get_shahnameh_verses(max_retries=15):
-    for attempt in range(1, max_retries + 1):
-        try:
-            url = f"{GANJOOR_API}/poem/random"
-            r = requests.get(url, params={"poetId": 2}, timeout=12)
-            r.raise_for_status()
-            poem = r.json()
+# ================= تنظیمات =================
+BITS_PER_POST = 4          # تعداد بیت در هر پست
+FILE_NAME = "shahnameh.txt"
 
-            poet = poem.get('poet', {})
-            poet_name = poet.get('name', 'نامشخص')
-            poet_id = poet.get('id')
+def load_state():
+    if os.path.exists("state.json"):
+        with open("state.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"last_index": 0}
 
-            print(f"تلاش {attempt}: شاعر = {poet_name} (ID: {poet_id})")
+def save_state(last_index):
+    with open("state.json", "w", encoding="utf-8") as f:
+        json.dump({"last_index": last_index}, f, ensure_ascii=False, indent=2)
 
-            if poet_id == 2 or "فردوسی" in poet_name or "فردوسي" in poet_name:
-                verses = poem.get('verses', [])
-                title = poem.get('title', 'شاهنامه')
-                full_url = f"https://ganjoor.net{poem.get('fullUrl', '')}"
-                print(f"✅ بیت از شاهنامه دریافت شد!")
-                return verses[:4], title, full_url
+def load_shahnameh():
+    if not os.path.exists(FILE_NAME):
+        print(f"❌ فایل {FILE_NAME} پیدا نشد!")
+        return []
+    with open(FILE_NAME, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
+    return lines
 
-        except Exception as e:
-            print(f"خطا در تلاش {attempt}: {e}")
-
-    print("❌ بعد از ۱۵ تلاش هم بیت از شاهنامه پیدا نشد")
-    return None, None, None
-
-def create_caption(verses, title):
+def create_caption(verses, start_index):
     caption = "📖 **شاهنامه فردوسی**\n\n"
     for verse in verses:
-        caption += f"{verse.get('text', '')}\n"
+        caption += f"{verse}\n"
     
-    caption += f"\n🏷️ {title}"
+    caption += f"\n📍 بیت {start_index + 1} تا {start_index + len(verses)}"
     caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
     return caption
 
 def send_post():
-    verses, title, poem_url = get_shahnameh_verses()
-
-    if not verses:
+    state = load_state()
+    shahnameh = load_shahnameh()
+    
+    if not shahnameh:
+        print("فایل شاهنامه خالی یا وجود ندارد")
         return
 
-    caption = create_caption(verses, title)
+    start = state["last_index"]
+    end = start + BITS_PER_POST
+    verses = shahnameh[start:end]
 
+    if not verses:
+        print("به پایان شاهنامه رسیدیم! از ابتدا شروع می‌شود.")
+        state["last_index"] = 0
+        save_state(0)
+        return
+
+    caption = create_caption(verses, start)
+
+    # دکمه‌ها
     keyboard = {
         "inline_keyboard": [
-            [{"text": "📖 خواندن کامل این بخش", "url": poem_url}],
+            [{"text": "⏭ بیت بعدی", "callback_data": "next"}],
             [
-                {"text": "🎧 صوت خوانش", "url": poem_url},
-                {"text": "🔎 شرح و معنی", "url": poem_url}
+                {"text": "🎧 صوت شاهنامه", "url": "https://ganjoor.net/ferdowsi/shahname"},
+                {"text": "📚 درباره شاهنامه", "url": "https://fa.wikipedia.org/wiki/شاهنامه"}
             ]
         ]
     }
@@ -71,15 +79,15 @@ def send_post():
     }
 
     response = requests.post(url, json=payload)
-    
+
     if response.status_code == 200:
-        print("✅ پست با موفقیت ارسال شد")
+        print(f"✅ پست ارسال شد (بیت {start+1} تا {start+len(verses)})")
+        save_state(end)
     else:
-        print(f"❌ خطا در ارسال: {response.status_code}")
-        print(response.text)
+        print("❌ خطا در ارسال:", response.text)
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
-        print("❌ توکن یا آیدی کانال تنظیم نشده است")
+        print("❌ توکن یا آیدی کانال تنظیم نشده")
     else:
         send_post()
