@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه تمیز v8 ===")
+print("=== شاهنامه بات - نسخه نهایی v9 ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -14,8 +14,7 @@ def load_state():
     if os.path.exists("state.json"):
         try:
             with open("state.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return {"last_index": int(data.get("last_index", 0))}
+                return {"last_index": int(json.load(f).get("last_index", 0))}
         except:
             return {"last_index": 0}
     return {"last_index": 0}
@@ -25,9 +24,6 @@ def save_state(last_index):
         json.dump({"last_index": last_index}, f, ensure_ascii=False, indent=2)
 
 def load_shahnameh():
-    if not os.path.exists(FILE_NAME):
-        print(f"❌ فایل {FILE_NAME} پیدا نشد!")
-        return []
     with open(FILE_NAME, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
     return lines
@@ -45,16 +41,12 @@ def send_post():
     state = load_state()
     shahnameh = load_shahnameh()
     
-    if not shahnameh:
-        print("❌ فایل شاهنامه خالی است")
-        return
-
-    # برای تست فعلاً همیشه از اول شروع کند (بعداً برمی‌داریم)
-    start = 0
+    start = state["last_index"]
     verses = shahnameh[start:start + BITS_PER_POST]
 
     if not verses:
-        print("فایل شاهنامه خیلی کوتاه است")
+        print("به پایان شاهنامه رسیدیم. ریست شد.")
+        save_state(0)
         return
 
     caption = create_caption(verses, start)
@@ -62,14 +54,14 @@ def send_post():
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "📖 ادامه خواندن در گنجور", 
-                 "url": "https://ganjoor.net/ferdowsi/shahname/"}
+                {"text": "📖 ادامه خواندن شاهنامه", 
+                 "url": "https://ganjoor.net/ferdowsi/shahname"}
             ],
             [
-                {"text": "🎧 صوت‌های شاهنامه", 
+                {"text": "🎧 صوت‌های حرفه‌ای شاهنامه", 
                  "url": "https://ganjoor.net/ferdowsi/shahname"},
-                {"text": "📚 شاهنامه کامل (PDF)", 
-                 "url": "https://github.com/josephconnor86432-web/shahnameh-bot-2/raw/main/shahnameh.pdf"}
+                {"text": "📚 دانلود شاهنامه کامل (PDF)", 
+                 "url": "https://download.ketabnak.com/ketab/1398/02/01/Ferdowsi.Shahname.pdf"}
             ]
         ]
     }
