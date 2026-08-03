@@ -6,7 +6,7 @@ from pdf2image import convert_from_path
 from PIL import Image, ImageDraw, ImageFont
 import tempfile
 
-print("=== شاهنامه به نثر پارسی سره - ارسال ۱۰ صفحه روزانه ===")
+print("=== شاهنامه به نثر پارسی سره - نسخه پایدار (۱۰ صفحه روزانه) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -26,84 +26,80 @@ def save_state(last_page):
     with open("state.json", "w", encoding="utf-8") as f:
         json.dump({"last_page": last_page}, f, ensure_ascii=False, indent=2)
 
-def add_page_number(img, page_num, total_pages):
+def add_page_number(img, page_num):
     draw = ImageDraw.Draw(img)
     try:
-        font = ImageFont.truetype("DejaVuSans.ttf", 36)
+        font = ImageFont.truetype("DejaVuSans.ttf", 42)
     except:
         font = ImageFont.load_default()
     
-    text = f"صفحه {page_num} از {total_pages} • شاهنامه به نثر پارسی سره"
-    draw.text((30, 30), text, fill=(0, 0, 0), font=font)
+    text = f"صفحه {page_num} • شاهنامه به نثر پارسی سره از میترا"
+    draw.text((40, 30), text, fill=(0, 0, 0), font=font)
     return img
 
 def send_post():
     if not os.path.exists(PDF_FILENAME):
-        print(f"❌ فایل {PDF_FILENAME} پیدا نشد!")
+        print(f"❌ فایل PDF پیدا نشد: {PDF_FILENAME}")
         return
 
     last_page = load_state()
-    total_pages = len(convert_from_path(PDF_FILENAME, dpi=150, first_page=1, last_page=1)) * 10  # تخمینی
-
-    print(f"ارسال صفحات {last_page + 1} تا {last_page + PAGES_PER_POST}")
-
-    images = []
-    temp_files = []
+    print(f"در حال ارسال صفحات {last_page + 1} تا {last_page + PAGES_PER_POST}")
 
     try:
         pages = convert_from_path(
             PDF_FILENAME,
-            dpi=200,
+            dpi=180,
             first_page=last_page + 1,
             last_page=last_page + PAGES_PER_POST,
             thread_count=2
         )
 
-        for i, page in enumerate(pages, 1):
-            current_page = last_page + i
-            page_with_number = add_page_number(page, current_page, total_pages)
+        sent_count = 0
+        for i, page_img in enumerate(pages):
+            current_page = last_page + i + 1
             
-            tmp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
-            page_with_number.save(tmp_file.name, 'JPEG', quality=85)
-            images.append(tmp_file.name)
-            temp_files.append(tmp_file.name)
+            # اضافه کردن شماره صفحه
+            page_with_text = add_page_number(page_img, current_page)
+            
+            # ذخیره موقت
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+                page_with_text.save(tmp.name, 'JPEG', quality=90)
+                temp_path = tmp.name
 
-        # ارسال به صورت آلبوم (Media Group)
-        media = []
-        for img_path in images:
-            media.append({
-                "type": "photo",
-                "media": open(img_path, "rb")
-            })
+            # ارسال تک تک (پایدارتر)
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+            caption = f"📖 صفحه {current_page}\n\n" \
+                     f"شاهنامه به نثر پارسی سره از میترا\n" \
+                     f"📅 {datetime.now().strftime('%Y/%m/%d')}"
 
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMediaGroup"
-        payload = {
-            "chat_id": CHANNEL_ID,
-            "caption": f"📖 **شاهنامه به نثر پارسی سره**\n\n"
-                       f"صفحات {last_page + 1} تا {last_page + len(pages)}\n"
-                       f"📅 {datetime.now().strftime('%Y/%m/%d')}",
-            "parse_mode": "Markdown"
-        }
+            with open(temp_path, 'rb') as photo:
+                response = requests.post(
+                    url,
+                    data={
+                        "chat_id": CHANNEL_ID,
+                        "caption": caption,
+                        "parse_mode": "Markdown"
+                    },
+                    files={"photo": photo}
+                )
 
-        files = [("media", (f"page{i}.jpg", open(img, "rb"), "image/jpeg")) for i, img in enumerate(images)]
+            os.unlink(temp_path)  # پاک کردن فایل موقت
 
-        response = requests.post(url, data=payload, files=files)
+            if response.status_code == 200:
+                sent_count += 1
+                print(f"✅ صفحه {current_page} ارسال شد")
+            else:
+                print(f"❌ خطا در ارسال صفحه {current_page}: {response.text}")
+                break
 
-        if response.status_code == 200:
-            print(f"✅ موفقیت: {len(pages)} صفحه ارسال شد")
-            save_state(last_page + len(pages))
+        if sent_count > 0:
+            save_state(last_page + sent_count)
+            print(f"✅ مجموع {sent_count} صفحه با موفقیت ارسال شد")
         else:
-            print("❌ خطا در ارسال:", response.text)
+            print("❌ هیچ صفحه‌ای ارسال نشد")
 
     except Exception as e:
-        print(f"خطا: {e}")
-    finally:
-        # پاک کردن فایل‌های موقت
-        for f in temp_files:
-            try:
-                os.unlink(f)
-            except:
-                pass
+        print(f"خطای کلی: {e}")
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
