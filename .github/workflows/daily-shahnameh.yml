@@ -11,7 +11,7 @@ def load_state():
     if os.path.exists("state.json"):
         with open("state.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    return {}
+    return {"last_post_time": ""}
 
 def save_state(state):
     with open("state.json", "w", encoding="utf-8") as f:
@@ -34,7 +34,6 @@ def create_caption(verses):
     caption = "📖 **شاهنامه فردوسی**\n\n"
     for verse in verses:
         caption += f"{verse.get('text', '')}\n"
-    
     caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
     return caption
 
@@ -52,9 +51,6 @@ def send_post():
             [
                 {"text": "🎤 صوت خوانش", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"},
                 {"text": "📖 ادامه داستان", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
-            ],
-            [
-                {"text": "🔎 شرح و معنی", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
             ]
         ]
     }
@@ -70,9 +66,12 @@ def send_post():
     response = requests.post(url, json=payload)
     
     if response.status_code == 200:
-        print("✅ پست با موفقیت ارسال شد")
+        print("✅ پست متنی با موفقیت به کانال ارسال شد")
+        state = load_state()
+        state["last_post_time"] = datetime.now().isoformat()
+        save_state(state)
     else:
-        print(f"❌ خطا در ارسال به تلگرام: {response.status_code}")
+        print(f"❌ خطا در ارسال متن: {response.status_code}")
         print(response.text)
 
 if __name__ == "__main__":
