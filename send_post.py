@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه متنی v7 (دکمه‌های درست) ===")
+print("=== شاهنامه بات - نسخه تمیز v8 ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -14,7 +14,8 @@ def load_state():
     if os.path.exists("state.json"):
         try:
             with open("state.json", "r", encoding="utf-8") as f:
-                return {"last_index": int(json.load(f).get("last_index", 0))}
+                data = json.load(f)
+                return {"last_index": int(data.get("last_index", 0))}
         except:
             return {"last_index": 0}
     return {"last_index": 0}
@@ -48,12 +49,12 @@ def send_post():
         print("❌ فایل شاهنامه خالی است")
         return
 
-    start = state["last_index"]
+    # برای تست فعلاً همیشه از اول شروع کند (بعداً برمی‌داریم)
+    start = 0
     verses = shahnameh[start:start + BITS_PER_POST]
 
     if not verses:
-        print("✅ به پایان شاهنامه رسیدیم. از ابتدا شروع می‌شود.")
-        save_state(0)
+        print("فایل شاهنامه خیلی کوتاه است")
         return
 
     caption = create_caption(verses, start)
@@ -61,13 +62,13 @@ def send_post():
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "📖 ادامه شاهنامه در گنجور", 
-                 "url": "https://ganjoor.net/ferdowsi/shahname"}
+                {"text": "📖 ادامه خواندن در گنجور", 
+                 "url": "https://ganjoor.net/ferdowsi/shahname/"}
             ],
             [
-                {"text": "🎧 بهترین صوت‌های شاهنامه", 
+                {"text": "🎧 صوت‌های شاهنامه", 
                  "url": "https://ganjoor.net/ferdowsi/shahname"},
-                {"text": "📚 دانلود شاهنامه کامل (PDF)", 
+                {"text": "📚 شاهنامه کامل (PDF)", 
                  "url": "https://github.com/josephconnor86432-web/shahnameh-bot-2/raw/main/shahnameh.pdf"}
             ]
         ]
