@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه نهایی v12 (اصلاح سینتکس) ===")
+print("=== شاهنامه بات - نسخه نهایی v13 (لینک‌های معتبر) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -54,11 +54,14 @@ def send_post():
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "📖 ادامه خواندن شاهنامه", "url": "https://ganjoor.net/ferdowsi/shahname/"}
+                {"text": "📖 خواندن کامل شاهنامه در گنجور", 
+                 "url": "https://ganjoor.net/ferdowsi/shahname"}
             ],
             [
-                {"text": "🎧 صوت‌های شاهنامه", "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87"},
-                {"text": "📥 دانلود شاهنامه کامل (PDF)", "url": "https://files.ekhtiyar.ir/pdf/ferdowsi-shahnameh.pdf"}
+                {"text": "🎧 صوت شاهنامه (یوتیوب)", 
+                 "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87"},
+                {"text": "📥 دانلود شاهنامه کامل PDF", 
+                 "url": "https://ia801200.us.archive.org/8/items/shahnameh-ferdowsi/Shahnameh.pdf"}
             ]
         ]
     }
