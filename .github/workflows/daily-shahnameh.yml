@@ -3,8 +3,8 @@ name: Daily Shahnameh Post
 on:
   schedule:
     - cron: "0 6 * * *"
-    - cron: "0 13 * * *"
-    - cron: "0 19 * * *"
+    - cron: "0 14 * * *"
+    - cron: "0 20 * * *"
   workflow_dispatch:
 
 permissions:
@@ -14,20 +14,15 @@ jobs:
   send-post:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: pip install requests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+          pip install requests pdf2image
 
-      - name: Send Shahnameh Post
+      - name: Send Shahnameh Pages
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
@@ -37,12 +32,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          if git diff --quiet state.json; then
-            echo "No changes to commit"
-          else
-            git add state.json
-            git commit -m "Update last verse state"
-            git push
-            echo "State file updated and pushed"
-          fi
+          git add state.json
+          git commit -m "Update last page" || echo "No changes to commit"
+          git push
