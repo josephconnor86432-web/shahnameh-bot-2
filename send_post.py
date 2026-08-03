@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه نهایی v11 (لینک‌های اصلاح شده) ===")
+print("=== شاهنامه بات - نسخه نهایی v12 (اصلاح سینتکس) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -45,7 +45,7 @@ def send_post():
     verses = shahnameh[start:start + BITS_PER_POST]
 
     if not verses:
-        print("به پایان شاهنامه رسیدیم.")
+        print("به پایان شاهنامه رسیدیم. ریست شد.")
         save_state(0)
         return
 
@@ -54,9 +54,34 @@ def send_post():
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "📖 ادامه خواندن شاهنامه", 
-                 "url": "https://ganjoor.net/ferdowsi/shahname/"}
+                {"text": "📖 ادامه خواندن شاهنامه", "url": "https://ganjoor.net/ferdowsi/shahname/"}
             ],
             [
-                {"text": "🎧 صوت‌های شاهنامه", 
-                 "url": 
+                {"text": "🎧 صوت‌های شاهنامه", "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87"},
+                {"text": "📥 دانلود شاهنامه کامل (PDF)", "url": "https://files.ekhtiyar.ir/pdf/ferdowsi-shahnameh.pdf"}
+            ]
+        ]
+    }
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHANNEL_ID,
+        "text": caption,
+        "parse_mode": "Markdown",
+        "reply_markup": json.dumps(keyboard)
+    }
+
+    response = requests.post(url, json=payload)
+
+    if response.status_code == 200:
+        print(f"✅ پست ارسال شد (بیت {start+1} تا {start+len(verses)})")
+        save_state(start + len(verses))
+    else:
+        print(f"❌ خطا در ارسال: {response.status_code}")
+        print(response.text)
+
+if __name__ == "__main__":
+    if not BOT_TOKEN or not CHANNEL_ID:
+        print("❌ توکن یا آیدی کانال تنظیم نشده است")
+    else:
+        send_post()
