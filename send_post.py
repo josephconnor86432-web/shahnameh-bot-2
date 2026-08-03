@@ -2,84 +2,108 @@ import requests
 import json
 import os
 from datetime import datetime
+from pdf2image import convert_from_path
+from PIL import Image, ImageDraw, ImageFont
+import tempfile
 
-print("=== شاهنامه بات - نسخه تمیز (v17) ===")
+print("=== شاهنامه به نثر پارسی سره - ارسال ۱۰ صفحه روزانه ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
-BITS_PER_POST = 4
-FILE_NAME = "shahnameh.txt"
+PDF_FILENAME = "شاهنامه_به_نثر_پارسی_سره_از_میترا.pdf"
+PAGES_PER_POST = 10
 
 def load_state():
     if os.path.exists("state.json"):
         try:
             with open("state.json", "r", encoding="utf-8") as f:
-                return {"last_index": int(json.load(f).get("last_index", 0))}
+                return json.load(f).get("last_page", 0)
         except:
-            return {"last_index": 0}
-    return {"last_index": 0}
+            return 0
+    return 0
 
-def save_state(last_index):
+def save_state(last_page):
     with open("state.json", "w", encoding="utf-8") as f:
-        json.dump({"last_index": last_index}, f, ensure_ascii=False, indent=2)
+        json.dump({"last_page": last_page}, f, ensure_ascii=False, indent=2)
 
-def load_shahnameh():
-    with open(FILE_NAME, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-    return lines
-
-def create_caption(verses, start_index):
-    caption = "📖 **شاهنامه فردوسی**\n\n"
-    for verse in verses:
-        caption += f"{verse}\n"
+def add_page_number(img, page_num, total_pages):
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 36)
+    except:
+        font = ImageFont.load_default()
     
-    caption += f"\n📍 بیت {start_index + 1} تا {start_index + len(verses)}"
-    caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
-    return caption
+    text = f"صفحه {page_num} از {total_pages} • شاهنامه به نثر پارسی سره"
+    draw.text((30, 30), text, fill=(0, 0, 0), font=font)
+    return img
 
 def send_post():
-    state = load_state()
-    shahnameh = load_shahnameh()
-    
-    start = state["last_index"]
-    verses = shahnameh[start:start + BITS_PER_POST]
-
-    if not verses:
-        print("به پایان شاهنامه رسیدیم. ریست شد.")
-        save_state(0)
+    if not os.path.exists(PDF_FILENAME):
+        print(f"❌ فایل {PDF_FILENAME} پیدا نشد!")
         return
 
-    caption = create_caption(verses, start)
+    last_page = load_state()
+    total_pages = len(convert_from_path(PDF_FILENAME, dpi=150, first_page=1, last_page=1)) * 10  # تخمینی
 
-    keyboard = {
-        "inline_keyboard": [
-            [
-                {"text": "🎧 صوت شاهنامه", 
-                 "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87+%D9%81%D8%B1%D8%AF%D9%88%D8%B3%DB%8C"}
-            ],
-            [
-                {"text": "🔎 درباره شاهنامه و فردوسی", 
-                 "url": "https://fa.wikipedia.org/wiki/%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87"}
-            ]
-        ]
-    }
+    print(f"ارسال صفحات {last_page + 1} تا {last_page + PAGES_PER_POST}")
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHANNEL_ID,
-        "text": caption,
-        "parse_mode": "Markdown",
-        "reply_markup": json.dumps(keyboard)
-    }
+    images = []
+    temp_files = []
 
-    response = requests.post(url, json=payload)
+    try:
+        pages = convert_from_path(
+            PDF_FILENAME,
+            dpi=200,
+            first_page=last_page + 1,
+            last_page=last_page + PAGES_PER_POST,
+            thread_count=2
+        )
 
-    if response.status_code == 200:
-        print(f"✅ پست ارسال شد (بیت {start+1} تا {start+len(verses)})")
-        save_state(start + len(verses))
-    else:
-        print(f"❌ خطا در ارسال: {response.status_code}")
-        print(response.text)
+        for i, page in enumerate(pages, 1):
+            current_page = last_page + i
+            page_with_number = add_page_number(page, current_page, total_pages)
+            
+            tmp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+            page_with_number.save(tmp_file.name, 'JPEG', quality=85)
+            images.append(tmp_file.name)
+            temp_files.append(tmp_file.name)
+
+        # ارسال به صورت آلبوم (Media Group)
+        media = []
+        for img_path in images:
+            media.append({
+                "type": "photo",
+                "media": open(img_path, "rb")
+            })
+
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMediaGroup"
+        payload = {
+            "chat_id": CHANNEL_ID,
+            "caption": f"📖 **شاهنامه به نثر پارسی سره**\n\n"
+                       f"صفحات {last_page + 1} تا {last_page + len(pages)}\n"
+                       f"📅 {datetime.now().strftime('%Y/%m/%d')}",
+            "parse_mode": "Markdown"
+        }
+
+        files = [("media", (f"page{i}.jpg", open(img, "rb"), "image/jpeg")) for i, img in enumerate(images)]
+
+        response = requests.post(url, data=payload, files=files)
+
+        if response.status_code == 200:
+            print(f"✅ موفقیت: {len(pages)} صفحه ارسال شد")
+            save_state(last_page + len(pages))
+        else:
+            print("❌ خطا در ارسال:", response.text)
+
+    except Exception as e:
+        print(f"خطا: {e}")
+    finally:
+        # پاک کردن فایل‌های موقت
+        for f in temp_files:
+            try:
+                os.unlink(f)
+            except:
+                pass
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
