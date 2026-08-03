@@ -1,84 +1,48 @@
-import requests
-import json
-import os
-from datetime import datetime
+name: Daily Shahnameh Post
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = os.getenv("CHANNEL_ID")
-GANJOOR_API = "https://api.ganjoor.net/api/ganjoor"
+on:
+  schedule:
+    - cron: "0 6 * * *"
+    - cron: "0 13 * * *"
+    - cron: "0 19 * * *"
+  workflow_dispatch:
 
-def load_state():
-    if os.path.exists("state.json"):
-        with open("state.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+permissions:
+  contents: write
 
-def save_state(state):
-    with open("state.json", "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+jobs:
+  send-post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-def get_random_verses(count=4):
-    try:
-        url = f"{GANJOOR_API}/poem/random"
-        params = {"poetId": 2}
-        r = requests.get(url, params=params, timeout=20)
-        r.raise_for_status()
-        poem = r.json()
-        verses = poem.get('verses', [])
-        return verses[:count] if verses else None
-    except Exception as e:
-        print(f"خطا در دریافت بیت: {e}")
-        return None
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-def create_caption(verses):
-    caption = "📖 **شاهنامه فردوسی**\n\n"
-    for verse in verses:
-        caption += f"{verse.get('text', '')}\n"
-    
-    caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
-    return caption
+      - name: Install dependencies
+        run: pip install requests
 
-def send_post():
-    verses = get_random_verses(count=4)
+      - name: Send Shahnameh Post
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+        run: python send_post.py
 
-    if not verses or len(verses) < 2:
-        print("❌ نتوانست بیت دریافت کند")
-        return
-
-    caption = create_caption(verses)
-
-    keyboard = {
-        "inline_keyboard": [
-            [
-                {"text": "🎤 صوت خوانش", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"},
-                {"text": "📖 ادامه داستان", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
-            ],
-            [
-                {"text": "🔎 شرح و معنی", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
-            ]
-        ]
-    }
-
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHANNEL_ID,
-        "text": caption,
-        "parse_mode": "Markdown",
-        "reply_markup": json.dumps(keyboard)
-    }
-
-    response = requests.post(url, json=payload)
-    
-    if response.status_code == 200:
-        print("✅ پست با موفقیت ارسال شد")
-        # حالا state را بهروز میکنیم (اگر نیاز است)
-        # save_state(state) # میتوانی بعداً پیادهسازی کنی
-    else:
-        print(f"❌ خطا در ارسال به تلگرام: {response.status_code}")
-        print(response.text)
-
-if __name__ == "__main__":
-    if not BOT_TOKEN or not CHANNEL_ID:
-        print("❌ BOT_TOKEN یا CHANNEL_ID تنظیم نشده است")
-    else:
-        send_post()
+      - name: Update State
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet state.json; then
+            echo "No changes to commit"
+          else
+            git add state.json
+            git commit -m "Update last verse state"
+            git push
+            echo "State file updated and pushed"
+          fi
