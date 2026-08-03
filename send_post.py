@@ -7,14 +7,15 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 GANJOOR_API = "https://api.ganjoor.net/api/ganjoor"
 
-# لیست تصاویر نگارگری شاهنامه
+# لینک‌های مستقیم و مطمئن‌تر تصاویر
 IMAGES = [
     "https://upload.wikimedia.org/wikipedia/commons/9/9f/Shahnameh_The_Houghton_01.jpg",
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Rostam_and_Sohrab.jpg/1280px-Rostam_and_Sohrab.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/5/5e/Rostam_and_Sohrab.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/7/7e/Shahnameh_-_Rustam_and_the_White_Div.jpg",
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Bijan_and_Manijeh.jpg/1280px-Bijan_and_Manijeh.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/0/0d/Bijan_and_Manijeh.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/8/8f/Ferdowsi_-_Shahnameh_-_The_Court_of_Gayumars.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/3/3f/Shahnameh_-_Zal_and_the_Simurgh.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Shahnameh_illustration.jpg/1280px-Shahnameh_illustration.jpg"
 ]
 
 def load_state():
@@ -28,32 +29,24 @@ def save_state(state):
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 def get_random_verses(count=4):
-    """دریافت بیت تصادفی از شاهنامه با API جدید گنجور"""
     try:
-        # دریافت یک شعر تصادفی از فردوسی
         url = f"{GANJOOR_API}/poem/random"
         params = {"poetId": 2}
-        r = requests.get(url, params=params, timeout=15)
+        r = requests.get(url, params=params, timeout=20)
         r.raise_for_status()
         poem = r.json()
-
         verses = poem.get('verses', [])
-        if len(verses) < count:
-            return verses
-        return verses[:count]
+        return verses[:count] if verses else None
     except Exception as e:
         print(f"خطا در دریافت بیت: {e}")
         return None
 
 def create_caption(verses):
     caption = "📖 **شاهنامه فردوسی**\n\n"
-    
     for verse in verses:
-        text = verse.get('text', '')
-        caption += f"{text}\n"
+        caption += f"{verse.get('text', '')}\n"
     
     caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
-    caption += f"\n🔗 {verses[0].get('poem', {}).get('fullUrl', '')}"
     return caption
 
 def send_post():
@@ -65,16 +58,17 @@ def send_post():
         return
 
     caption = create_caption(verses)
-    image_url = IMAGES[state["last_image_index"] % len(IMAGES)]
+    image_index = state["last_image_index"] % len(IMAGES)
+    image_url = IMAGES[image_index]
+    
+    print(f"در حال ارسال تصویر شماره: {image_index + 1}")
+    print(f"لینک تصویر: {image_url}")
 
     keyboard = {
         "inline_keyboard": [
             [
                 {"text": "🎤 صوت خوانش", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"},
                 {"text": "📖 ادامه داستان", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
-            ],
-            [
-                {"text": "🔎 شرح و معنی", "url": f"https://ganjoor.net{verses[0].get('poem', {}).get('fullUrl', '')}"}
             ]
         ]
     }
