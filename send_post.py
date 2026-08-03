@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه پایدار بدون گنجور (v15) ===")
+print("=== شاهنامه بات - نسخه نهایی و پایدار (v16) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -58,7 +58,7 @@ def send_post():
                  "url": "https://www.youtube.com/results?search_query=%D8%B5%D9%88%D8%AA+%D8%AE%D9%88%D8%A7%D9%86%D8%AF%DA%AF%DB%8C+%D8%B4%D8%A7%D9%87%D9%86%D8%A7%D9%85%D9%87+%D9%81%D8%B1%D8%AF%D9%88%D8%B3%DB%8C"}
             ],
             [
-                {"text": "📥 دانلود شاهنامه کامل (PDF)", 
+                {"text": "📥 دانلود شاهنامه کامل (PDF - ۳۰ مگ)", 
                  "url": "https://ia801200.us.archive.org/8/items/shahnameh-ferdowsi/Shahnameh.pdf"}
             ],
             [
