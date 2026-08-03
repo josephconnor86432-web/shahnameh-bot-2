@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه متنی پایدار (v6) ===")
+print("=== شاهنامه بات - نسخه متنی v7 (دکمه‌های درست) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -14,8 +14,7 @@ def load_state():
     if os.path.exists("state.json"):
         try:
             with open("state.json", "r", encoding="utf-8") as f:
-                state = json.load(f)
-                return {"last_index": int(state.get("last_index", 0))}
+                return {"last_index": int(json.load(f).get("last_index", 0))}
         except:
             return {"last_index": 0}
     return {"last_index": 0}
@@ -34,7 +33,7 @@ def load_shahnameh():
 
 def create_caption(verses, start_index):
     caption = "📖 **شاهنامه فردوسی**\n\n"
-    for i, verse in enumerate(verses, 1):
+    for verse in verses:
         caption += f"{verse}\n"
     
     caption += f"\n📍 بیت {start_index + 1} تا {start_index + len(verses)}"
@@ -54,7 +53,6 @@ def send_post():
 
     if not verses:
         print("✅ به پایان شاهنامه رسیدیم. از ابتدا شروع می‌شود.")
-        state["last_index"] = 0
         save_state(0)
         return
 
@@ -62,10 +60,15 @@ def send_post():
 
     keyboard = {
         "inline_keyboard": [
-            [{"text": "⏭ بیت بعدی", "callback_data": "next"}],
             [
-                {"text": "🎧 صوت شاهنامه", "url": "https://ganjoor.net/ferdowsi/shahname"},
-                {"text": "📚 اطلاعات بیشتر", "url": "https://fa.wikipedia.org/wiki/شاهنامه"}
+                {"text": "📖 ادامه شاهنامه در گنجور", 
+                 "url": "https://ganjoor.net/ferdowsi/shahname"}
+            ],
+            [
+                {"text": "🎧 بهترین صوت‌های شاهنامه", 
+                 "url": "https://ganjoor.net/ferdowsi/shahname"},
+                {"text": "📚 دانلود شاهنامه کامل (PDF)", 
+                 "url": "https://github.com/josephconnor86432-web/shahnameh-bot-2/raw/main/shahnameh.pdf"}
             ]
         ]
     }
@@ -81,7 +84,7 @@ def send_post():
     response = requests.post(url, json=payload)
 
     if response.status_code == 200:
-        print(f"✅ پست با موفقیت ارسال شد (بیت {start+1} تا {start+len(verses)})")
+        print(f"✅ پست ارسال شد (بیت {start+1} تا {start+len(verses)})")
         save_state(start + len(verses))
     else:
         print(f"❌ خطا در ارسال: {response.status_code}")
