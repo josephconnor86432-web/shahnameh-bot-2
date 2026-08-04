@@ -3,11 +3,11 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - ارسال متن (نسخه نهایی) ===")
+print("=== شاهنامه بات - نسخه متنی (۱۲ بیت در هر پست) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
-BITS_PER_POST = 6
+BITS_PER_POST = 12          # تعداد بیت در هر ارسال
 FILE_NAME = "shahnameh.txt"
 
 def load_state():
@@ -31,11 +31,11 @@ def load_shahnameh():
 def create_caption(verses, start_index):
     caption = "📖 **شاهنامه فردوسی**\n\n"
     for verse in verses:
-        caption += f"{verse}\n\n"
+        caption += f"{verse}\n"
     
-    caption += f"📍 بیت {start_index + 1} تا {start_index + len(verses)}\n"
-    caption += f"📅 {datetime.now().strftime('%Y/%m/%d')}\n"
-    caption += "\n🔹 تصحیح نزدیک به جلال خالقی مطلق"
+    caption += f"\n📍 بیت {start_index + 1} تا {start_index + len(verses)}"
+    caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
+    caption += "\n\n🔹 نسخه نزدیک به تصحیح جلال خالقی مطلق"
     return caption
 
 def send_post():
@@ -72,13 +72,13 @@ def send_post():
     response = requests.post(url, json=payload)
 
     if response.status_code == 200:
-        print(f"✅ ارسال شد: بیت {start+1} تا {start+len(verses)}")
+        print(f"✅ ارسال موفق: بیت {start+1} تا {start+len(verses)}")
         save_state(start + len(verses))
     else:
-        print("❌ خطا:", response.text)
+        print("❌ خطا در ارسال:", response.text)
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
-        print("❌ توکن یا آیدی کانال تنظیم نشده")
+        print("❌ توکن یا آیدی کانال تنظیم نشده است")
     else:
         send_post()
