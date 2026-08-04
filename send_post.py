@@ -3,60 +3,69 @@ import json
 import os
 from datetime import datetime
 
-print("=== شاهنامه بات - نسخه متنی (۱۲ بیت در هر پست) ===")
+print("=== شاهنامه بات - API گنجور (نسخه بهینه v20) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
-BITS_PER_POST = 12          # تعداد بیت در هر ارسال
-FILE_NAME = "shahnameh.txt"
+BITS_PER_POST = 6
 
-def load_state():
-    if os.path.exists("state.json"):
+def get_ferdowsi_poem():
+    """تلاش برای دریافت بیت فقط از فردوسی"""
+    for attempt in range(8):
         try:
-            with open("state.json", "r", encoding="utf-8") as f:
-                return json.load(f).get("last_index", 0)
-        except:
-            return 0
-    return 0
+            url = "https://api.ganjoor.net/api/ganjoor/poem/random"
+            params = {"poetId": 2}
+            r = requests.get(url, params=params, timeout=15)
+            r.raise_for_status()
+            poem = r.json()
 
-def save_state(last_index):
-    with open("state.json", "w", encoding="utf-8") as f:
-        json.dump({"last_index": last_index}, f, ensure_ascii=False, indent=2)
+            poet_id = poem.get('poet', {}).get('id') or poem.get('poetId')
+            poet_name = poem.get('poet', {}).get('name', '')
 
-def load_shahnameh():
-    with open(FILE_NAME, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-    return lines
+            if poet_id == 2 or "فردوسی" in poet_name or "فردوسي" in poet_name:
+                verses = poem.get('verses', [])
+                title = poem.get('title', 'شاهنامه')
+                full_url = f"https://ganjoor.net{poem.get('fullUrl', '')}"
+                print(f"✅ بیت از فردوسی دریافت شد (تلاش {attempt+1})")
+                return verses[:BITS_PER_POST], title, full_url
+            else:
+                print(f"تلاش {attempt+1}: دریافت از {poet_name} - دوباره تلاش میکنم")
+                continue
+        except Exception as e:
+            print(f"خطا در تلاش {attempt+1}: {e}")
+            continue
 
-def create_caption(verses, start_index):
+    print("❌ بعد از چندین تلاش بیت از فردوسی دریافت نشد")
+    return None, None, None
+
+def create_caption(verses, title):
     caption = "📖 **شاهنامه فردوسی**\n\n"
     for verse in verses:
-        caption += f"{verse}\n"
+        if verse.get('text'):
+            caption += f"{verse.get('text')}\n"
     
-    caption += f"\n📍 بیت {start_index + 1} تا {start_index + len(verses)}"
+    caption += f"\n🏷️ {title}"
     caption += f"\n📅 {datetime.now().strftime('%Y/%m/%d')}"
-    caption += "\n\n🔹 نسخه نزدیک به تصحیح جلال خالقی مطلق"
+    caption += "\n\n🔹 از API گنجور"
     return caption
 
 def send_post():
-    state = load_state()
-    shahnameh = load_shahnameh()
-    
-    start = state
-    verses = shahnameh[start:start + BITS_PER_POST]
+    verses, title, poem_url = get_ferdowsi_poem()
 
     if not verses:
-        print("به پایان شاهنامه رسیدیم. از ابتدا شروع می‌شود.")
-        save_state(0)
+        print("ارسال متوقف شد")
         return
 
-    caption = create_caption(verses, start)
+    caption = create_caption(verses, title)
 
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "🎧 صوت شاهنامه", "url": "https://www.youtube.com/results?search_query=صوت+خوانندگی+شاهنامه+فردوسی"},
-                {"text": "📚 درباره شاهنامه", "url": "https://fa.wikipedia.org/wiki/شاهنامه"}
+                {"text": "📖 ادامه خواندن", "url": poem_url}
+            ],
+            [
+                {"text": "🎧 صوت خوانش", "url": poem_url},
+                {"text": "🔎 شرح و معنی", "url": poem_url}
             ]
         ]
     }
@@ -72,10 +81,10 @@ def send_post():
     response = requests.post(url, json=payload)
 
     if response.status_code == 200:
-        print(f"✅ ارسال موفق: بیت {start+1} تا {start+len(verses)}")
-        save_state(start + len(verses))
+        print("✅ پست با موفقیت ارسال شد")
     else:
-        print("❌ خطا در ارسال:", response.text)
+        print(f"❌ خطا در ارسال: {response.status_code}")
+        print(response.text)
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
