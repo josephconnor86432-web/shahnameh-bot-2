@@ -3,13 +3,14 @@ import json
 import os
 from datetime import datetime
 from pdf2image import convert_from_path
-import pytesseract
+from PIL import Image, ImageDraw, ImageFont
+import tempfile
 
-print("=== شاهنامه خالقی مطلق - نسخه نهایی (۳ صفحه در هر پست) ===")
+print("=== شاهنامه خالقی مطلق - ارسال عکس با کیفیت (نسخه نهایی) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
-PAGES_PER_POST = 3   # کاهش یافته برای جلوگیری از ارور طول پیام
+PAGES_PER_POST = 5
 
 PDF_FILES = [
     "شاهنامه_فردوسی_به_تصحیح_جلال_خالقی_مطلق_نسخه_کامل_هشت_جلدی_compressed-1.pdf",
@@ -33,19 +34,27 @@ def save_state(current_file, current_page):
     with open("state.json", "w", encoding="utf-8") as f:
         json.dump({"current_file": current_file, "current_page": current_page}, f, ensure_ascii=False, indent=2)
 
-def clean_text(text):
-    if not text:
-        return ""
-    # پاکسازی کاراکترهای مشکل‌ساز
-    text = text.replace('*', '∗').replace('_', 'ـ').replace('`', "'").replace('**', '').replace('__', '')
-    text = text.replace('\n\n\n', '\n\n').strip()
-    return text
+def add_header(image, page_number):
+    draw = ImageDraw.Draw(image)
+    try:
+        title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 45)
+        page_font = ImageFont.truetype("DejaVuSans.ttf", 38)
+    except:
+        title_font = ImageFont.load_default()
+        page_font = ImageFont.load_default()
+
+    # هدر مشکی با متن طلایی
+    draw.rectangle([(0, 0), (image.width, 110)], fill=(15, 15, 15))
+    draw.text((60, 18), "شاهنامه فردوسی", fill=(255, 215, 0), font=title_font)
+    draw.text((60, 65), f"تصحیح جلال خالقی مطلق - صفحه {page_number}", fill=(220, 220, 220), font=page_font)
+    
+    return image
 
 def send_post():
     current_file_idx, current_page = load_state()
     
     if current_file_idx >= len(PDF_FILES):
-        print("تمام فایل‌ها پردازش شدند.")
+        print("تمام فایل‌ها ارسال شدند.")
         return
 
     pdf_path = PDF_FILES[current_file_idx]
@@ -53,53 +62,55 @@ def send_post():
         print(f"فایل پیدا نشد: {pdf_path}")
         return
 
-    print(f"در حال پردازش فایل {current_file_idx + 1}/5 - صفحه {current_page + 1} به بعد")
+    print(f"ارسال صفحات {current_page + 1} تا {current_page + PAGES_PER_POST} (فایل {current_file_idx + 1}/5)")
 
     try:
-        images = convert_from_path(pdf_path, dpi=180, first_page=current_page + 1, 
+        images = convert_from_path(pdf_path, dpi=220, first_page=current_page + 1, 
                                  last_page=current_page + PAGES_PER_POST)
 
-        full_text = ""
-        sent_pages = 0
+        media = []
+        temp_files = []
 
-        for i, img in enumerate(images):
-            text = pytesseract.image_to_string(img, lang='fas', config='--psm 6')
-            cleaned = clean_text(text)
-            if cleaned:
-                full_text += f"📌 صفحه {current_page + i + 1}\n\n{cleaned}\n\n{'─' * 35}\n\n"
-                sent_pages += 1
+        for i, pil_image in enumerate(images):
+            page_num = current_page + i + 1
+            processed = add_header(pil_image, page_num)
+            
+            tmp = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+            processed.save(tmp.name, 'JPEG', quality=95)
+            media.append(tmp.name)
+            temp_files.append(tmp.name)
 
-        if full_text.strip():
-            caption = f"📖 **شاهنامه فردوسی** — تصحیح جلال خالقی مطلق\n\n"
-            caption += full_text
-            caption += f"📍 فایل {current_file_idx + 1} از ۵\n"
-            caption += f"📅 {datetime.now().strftime('%Y/%m/%d')}"
+        # ارسال به صورت آلبوم
+        files = []
+        for idx, img_path in enumerate(media):
+            files.append(("media", open(img_path, "rb")))
 
-            # اگر متن خیلی طولانی بود، آن را به چند پیام تقسیم می‌کنیم
-            if len(caption) > 4000:
-                parts = [caption[i:i+4000] for i in range(0, len(caption), 4000)]
-                for part in parts:
-                    requests.post(
-                        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                        json={"chat_id": CHANNEL_ID, "text": part}
-                    )
-                print(f"✅ متن به {len(parts)} پیام تقسیم و ارسال شد")
-            else:
-                response = requests.post(
-                    f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                    json={"chat_id": CHANNEL_ID, "text": caption}
-                )
-                if response.status_code == 200:
-                    print(f"✅ {sent_pages} صفحه به صورت متن ارسال شد")
-                else:
-                    print("خطا در ارسال:", response.text)
+        response = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMediaGroup",
+            data={
+                "chat_id": CHANNEL_ID,
+                "caption": f"📖 شاهنامه فردوسی (تصحیح جلال خالقی مطلق)\n"
+                          f"فایل {current_file_idx + 1} از ۵ | صفحات {current_page + 1} تا {current_page + len(images)}\n"
+                          f"📅 {datetime.now().strftime('%Y/%m/%d')}",
+                "parse_mode": "Markdown"
+            },
+            files=files
+        )
 
-            save_state(current_file_idx, current_page + sent_pages)
+        if response.status_code == 200:
+            print(f"✅ موفقیت: {len(images)} صفحه ارسال شد")
+            save_state(current_file_idx, current_page + len(images))
         else:
-            print("هیچ متنی استخراج نشد.")
+            print("خطا در ارسال:", response.text)
 
     except Exception as e:
         print(f"خطا: {e}")
+    finally:
+        for f in temp_files:
+            try:
+                os.unlink(f)
+            except:
+                pass
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not CHANNEL_ID:
