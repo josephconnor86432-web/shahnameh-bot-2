@@ -2,9 +2,10 @@ name: Daily Shahnameh Post
 
 on:
   schedule:
-    - cron: "0 6 * * *"
-    - cron: "0 12 * * *"
-    - cron: "0 18 * * *"
+    - cron: "0 6 * * *"     # ۶ صبح
+    - cron: "0 11 * * *"    # ۱۱ صبح
+    - cron: "0 16 * * *"    # ۴ عصر
+    - cron: "0 21 * * *"    # ۹ شب
   workflow_dispatch:
 
 permissions:
@@ -19,10 +20,10 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-fas
-          pip install requests pdf2image pillow pytesseract
+          sudo apt-get install -y poppler-utils
+          pip install requests pdf2image pillow
 
-      - name: Send Shahnameh Text
+      - name: Send Shahnameh Pages
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
@@ -33,5 +34,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add state.json
-          git commit -m "Update last page and file" || echo "No changes to commit"
+          git commit -m "Update last page" || echo "No changes to commit"
           git push
