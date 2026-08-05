@@ -6,7 +6,7 @@ from pdf2image import convert_from_path
 from PIL import Image, ImageDraw, ImageFont
 import tempfile
 
-print("=== شاهنامه خالقی مطلق - ارسال عکس با کیفیت (نسخه نهایی) ===")
+print("=== شاهنامه خالقی مطلق - ارسال عکس (نسخه اصلاح شده) ===")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -37,24 +37,22 @@ def save_state(current_file, current_page):
 def add_header(image, page_number):
     draw = ImageDraw.Draw(image)
     try:
-        title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 45)
-        page_font = ImageFont.truetype("DejaVuSans.ttf", 38)
+        font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 48)
+        font_page = ImageFont.truetype("DejaVuSans.ttf", 36)
     except:
-        title_font = ImageFont.load_default()
-        page_font = ImageFont.load_default()
+        font_title = ImageFont.load_default()
+        font_page = ImageFont.load_default()
 
-    # هدر مشکی با متن طلایی
-    draw.rectangle([(0, 0), (image.width, 110)], fill=(15, 15, 15))
-    draw.text((60, 18), "شاهنامه فردوسی", fill=(255, 215, 0), font=title_font)
-    draw.text((60, 65), f"تصحیح جلال خالقی مطلق - صفحه {page_number}", fill=(220, 220, 220), font=page_font)
-    
+    draw.rectangle([(0, 0), (image.width, 130)], fill=(10, 10, 30))
+    draw.text((70, 25), "شاهنامه فردوسی", fill=(255, 215, 0), font=font_title)
+    draw.text((70, 78), f"تصحیح جلال خالقی مطلق • صفحه {page_number}", fill=(200, 200, 200), font=font_page)
     return image
 
 def send_post():
     current_file_idx, current_page = load_state()
     
     if current_file_idx >= len(PDF_FILES):
-        print("تمام فایل‌ها ارسال شدند.")
+        print("تمام فایل‌ها ارسال شده‌اند.")
         return
 
     pdf_path = PDF_FILES[current_file_idx]
@@ -68,29 +66,32 @@ def send_post():
         images = convert_from_path(pdf_path, dpi=220, first_page=current_page + 1, 
                                  last_page=current_page + PAGES_PER_POST)
 
-        media = []
+        media_array = []
+        files = {}
         temp_files = []
 
         for i, pil_image in enumerate(images):
             page_num = current_page + i + 1
-            processed = add_header(pil_image, page_num)
+            processed_image = add_header(pil_image, page_num)
             
-            tmp = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
-            processed.save(tmp.name, 'JPEG', quality=95)
-            media.append(tmp.name)
-            temp_files.append(tmp.name)
-
-        # ارسال به صورت آلبوم
-        files = []
-        for idx, img_path in enumerate(media):
-            files.append(("media", open(img_path, "rb")))
+            tmp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+            processed_image.save(tmp_file.name, 'JPEG', quality=92)
+            temp_files.append(tmp_file.name)
+            
+            file_key = f"file{i}"
+            media_array.append({
+                "type": "photo",
+                "media": f"attach://{file_key}"
+            })
+            files[file_key] = open(tmp_file.name, 'rb')
 
         response = requests.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMediaGroup",
             data={
                 "chat_id": CHANNEL_ID,
+                "media": json.dumps(media_array),
                 "caption": f"📖 شاهنامه فردوسی (تصحیح جلال خالقی مطلق)\n"
-                          f"فایل {current_file_idx + 1} از ۵ | صفحات {current_page + 1} تا {current_page + len(images)}\n"
+                          f"فایل {current_file_idx + 1} از ۵ — صفحات {current_page + 1} تا {current_page + len(images)}\n"
                           f"📅 {datetime.now().strftime('%Y/%m/%d')}",
                 "parse_mode": "Markdown"
             },
@@ -98,7 +99,7 @@ def send_post():
         )
 
         if response.status_code == 200:
-            print(f"✅ موفقیت: {len(images)} صفحه ارسال شد")
+            print(f"✅ موفقیت: {len(images)} صفحه به صورت آلبوم ارسال شد")
             save_state(current_file_idx, current_page + len(images))
         else:
             print("خطا در ارسال:", response.text)
